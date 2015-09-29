@@ -11,9 +11,15 @@ import os
 import glob
 import numpy 
 import pylab 
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+from scipy.optimize import leastsq
+import time 
+   
 
-
-def SeriesRead (exam, series):
+# call in all of the images from the exam of interest and the series that 
+#has the T2 data. Put all of the images into a 3D matrix 
+def SeriesRead (exam, series): 
         directory = 'exam_' + str(exam) + '/Ser' + str(series)
         os.chdir(directory) 
         images = glob.glob('E*S*I*.MR.dcm')
@@ -25,34 +31,164 @@ def SeriesRead (exam, series):
         for x in ImageLoop:
             if x == 0:
                slice = pydicom.read_file(images[x])        
-               sliceData = slice.pixel_array  
+               sliceData = slice.pixel_array
                dataset = sliceData
+               Echos = slice.EchoTime
+               EchoTime = Echos
             else:
                 slice = pydicom.read_file(images[x]) 
                 sliceData = slice.pixel_array
                 dataset = numpy.dstack((dataset, sliceData))
-        return (dataset, slices)
+                Echos = slice.EchoTime
+                EchoTime = numpy.hstack((EchoTime, Echos))
+        return (dataset, slices, EchoTime)
+
+#take the data from the 3D matrix and put them into a 4D matrix where 
+#D1= y, D2 = x, D3 = slice, D4 = echo.         
+def fourD (numsl, echos, T2data, TE):
+    fourD = numpy.zeros(shape=(256,256,numsl,echos))
+    EchoTimes = numpy.zeros(shape=(echos))
+    for sl in (range(1, numsl+1)):
+        for te in (range(1, echos+1)):
+            image = ((echos*(sl-1))+(te-1))
+            fourD [:,:, sl-1, te-1] = T2data [:,:,image]
+            
+            if sl == 1:
+                EchoTimes [te-1] = EchoTime[image]  
+    return (fourD, EchoTimes)
+
+def onclick(event):
+    global ix, iy
+    ix, iy = event.xdata, event.ydata
+    print 'x = %d, y = %d' %(ix, iy)
+    
+    global coords
+    coords.append((ix, iy))
+    
+    if len(coords) ==2:
+        fig.canvas.mp1_disconnect(cid)
+    
+    return coords
+
+def onclick(event):
+    global ix, iy
+    ix, iy = event.xdata, event.ydata
+
+    # assign global variable to access outside of function
+    global coords
+    coords.append((ix, iy))
+
+    # Disconnect after 2 clicks
+    if len(coords) == 2:
+        fig.canvas.mpl_disconnect(cid)
+        plt.close(1)
+    return coords    
+
+def roi(coords):    
+    click1 = coords[0]
+    click2 = coords[1]
+    xx1 = int (click1[0])
+    xx2 = int (click2[0])
+    yy1 = int (click1[1])
+    yy2 = int (click2[1])
+
+    vecx = [xx1, xx1, xx2, xx2, xx1]
+    vecy = [yy1, yy2, yy2, yy1, yy1] 
+
+    return(vecx, vecy, xx1, xx2, yy1, yy2)
+
+def func(TE, PD, T2):
+    return PD*numpy.exp(-TE/T2)    
 
 exam = raw_input("Enter exam number, for practice (3657): ")
 series = raw_input ("Enter seris numner, for this person (3): ")    
-
+echos = 8
 os.chdir('/Volumes/Anthony.Gatti_MacintoshHD/Users/Gatti/Desktop/T2_map_testing/')
 
-T2data, NoSlices = SeriesRead (exam, series)
+T2data, numsl, EchoTime = SeriesRead (exam, series)
 
-print 'echo two from each slice' 
+fourD, EchoTimes = fourD(numsl, echos, T2data, EchoTime)
 
-for y in (range (1, (NoSlices+1))):
-    slice = ((8*y)-7)    
-    pylab.imshow(T2data[:,:,slice], cmap=pylab.cm.bone)
+
+#print 'echo two from each slice' 
+#
+#for y in (range (1, (numsl+1))):
+#    slice = ((8*y)-7)    
+#    pylab.imshow(T2data[:,:,slice], cmap=pylab.cm.bone)
+#    pylab.figure(y+1)
+#
+#print '8 echos from slice 10'   
+#
+#for i in (range ((8*10-8), (8*10))):
+#    pylab.imshow(T2data[:,:,i], cmap=pylab.cm.bone)
+#    pylab.figure(i+100)
+
+#displays an image from approximately the middle of the medfial knee (1/4)          
+print '''****************************************************************
+An image will appear. First, click in the center of the image to bring
+is to the front of your screen and to initiate; second click the top left 
+hand corer of the ROI; third, clock the bottom right hand corner of the 
+ROI. If done correctly, the figure should disappear'''
+
+#Show an image from the medial side of the knee and select the ROI 
+fig = plt.figure(1)
+ax = fig.add_subplot(111)
+ax.imshow(fourD[:,:, numsl/4, 1])
+coords = []
+cid = fig.canvas.mpl_connect('button_press_event', onclick)
+plt.show(1)
+
+print coords
+
+coords = [(55.3445, 58.8333), (191.5, 207.5)]
+
+vecx, vecy, x1, x2, y1, y2 = roi (coords)
+
+#display the ROI that was selected 
+implot = plt.imshow(fourD[:,:, numsl/4, 1])
+plt.plot(vecx, vecy, c='r', linewidth=2)
+plt.show()
+
+# extract data from the ROI selected in the previous steps. Only analyze this.
+zoom = fourD[(range (y1, y2+1)), :,:,:]
+zoom = zoom[:, (range (x1, x2+1)),:,:]
+
+# pre-allocate arrays for the T2/PD/Rsq data
+T2 = numpy.zeros(shape=(zoom.shape))
+PD = numpy.zeros(shape=(zoom.shape))
+Rsq = numpy.zeros(shape=(zoom.shape))
+
+for z in range(0, numsl):
+    t = time.time()
+    for y in range (0, zoom.shape[0]):
+        for x in range (0, zoom.shape[1]):
+            S = numpy.squeeze(zoom[y,x,z,:])
+            
+            if S[1] < 400:
+                T2[y,x,z] = 0
+                PD[y,x,z] = 0
+                Rsq[y,x,z] = 0
+            elif S[1] > 3000:
+                T2[y,x,z] = 0
+                PD[y,x,z] = 0
+                Rsq[y,x,z] = 0
+            else:
+                popt, pcov = curve_fit(func, EchoTimes, S)
+                T2[y,x,z] = popt[1]
+                PD[y,x,z] = popt[0]
+                Rsq[y,x,z] = 0
+    elapsed = time.time() - t
+    print z    
+    print elapsed
+
+pydicom.filewriter.write_file(T2map, T2, )
+
+for y in (range (0, (numsl))):   
+    pylab.imshow(T2[:,:,y,1], cmap=pylab.cm.bone)
     pylab.figure(y+1)
+            
+            
+#guess = (1500, 30)           
+#popt, pcov = curve_fit(func, EchoTimes, zoom[50,50,6,:], guess)
 
-print '8 echos from slice 10'   
-
-for i in (range ((8*10-8), (8*10))):
-    pylab.imshow(T2data[:,:,i], cmap=pylab.cm.bone)
-    pylab.figure(i+100)
-
-
-
-
+#popt, pcov = curve_fit(func, EchoTimes, zoom[50,50,6,:])
