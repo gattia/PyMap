@@ -31,23 +31,27 @@ def SeriesRead (exam, series):
                 slice = pydicom.read_file(images[x]) 
                 sliceData = slice.pixel_array
                 dataset = numpy.dstack((dataset, sliceData))
-        return dataset
+        return (dataset, slices)
 
 exam = raw_input("Enter exam number, for practice (3657): ")
 series = raw_input ("Enter seris numner, for this person (3): ")    
 
 os.chdir('/Volumes/Anthony.Gatti_MacintoshHD/Users/Gatti/Desktop/T2_map_testing/')
 
-T2data = SeriesRead (exam, series)
-plt.bone()
-for y in (range (1, slices)):
+T2data, NoSlices = SeriesRead (exam, series)
+
+print 'echo two from each slice' 
+
+for y in (range (1, (NoSlices+1))):
     slice = ((8*y)-7)    
     pylab.imshow(T2data[:,:,slice], cmap=pylab.cm.bone)
     pylab.figure(y+1)
-    
 
+print '8 echos from slice 10'   
 
-
+for i in (range ((8*10-8), (8*10))):
+    pylab.imshow(T2data[:,:,i], cmap=pylab.cm.bone)
+    pylab.figure(i+100)
 
 
 
