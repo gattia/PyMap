@@ -4,8 +4,6 @@ Created on Mon Sep 28 17:44:48 2015
 
 @author: Gatti
 """
-
-
 import pydicom 
 import os 
 import glob
@@ -16,7 +14,6 @@ from scipy.optimize import curve_fit
 from scipy.optimize import leastsq
 import time 
    
-
 # call in all of the images from the exam of interest and the series that 
 #has the T2 data. Put all of the images into a 3D matrix 
 def SeriesRead (exam, series): 
@@ -30,10 +27,10 @@ def SeriesRead (exam, series):
         
         for x in ImageLoop:
             if x == 0:
-               slice = pydicom.read_file(images[x])        
-               sliceData = slice.pixel_array
+               first_slice = pydicom.read_file(images[x])        
+               sliceData = first_slice.pixel_array
                dataset = sliceData
-               Echos = slice.EchoTime
+               Echos = first_slice.EchoTime
                EchoTime = Echos
             else:
                 slice = pydicom.read_file(images[x]) 
@@ -41,7 +38,7 @@ def SeriesRead (exam, series):
                 dataset = numpy.dstack((dataset, sliceData))
                 Echos = slice.EchoTime
                 EchoTime = numpy.hstack((EchoTime, Echos))
-        return (dataset, slices, EchoTime)
+        return (dataset, slices, EchoTime, first_slice)
 
 #take the data from the 3D matrix and put them into a 4D matrix where 
 #D1= y, D2 = x, D3 = slice, D4 = echo.         
@@ -56,19 +53,6 @@ def fourD (numsl, echos, T2data, TE):
             if sl == 1:
                 EchoTimes [te-1] = EchoTime[image]  
     return (fourD, EchoTimes)
-
-#def onclick(event):
-#    global ix, iy
-#    ix, iy = event.xdata, event.ydata
-#    print 'x = %d, y = %d' %(ix, iy)
-#    
-#    global coords
-#    coords.append((ix, iy))
-#    
-#    if len(coords) ==2:
-#        fig.canvas.mp1_disconnect(cid)
-#    
-#    return coords
 
 def onclick(event):
     global ix, iy
@@ -120,7 +104,7 @@ def t2Relax(numsl, zoom, T2, PD, Rsq):
                     T2[y,x,z] = popt[1]
                     PD[y,x,z] = popt[0]
                     Rsq[y,x,z] = 0
-                    if T2[y,x,z] >80: # show values much closer to the real T2
+                    if T2[y,x,z] >100: # show values much closer to the real T2
                         T2[y,x,z] = 0
                         PD[y,x,z] = 0
                         Rsq[y,x,z] = 0
@@ -139,25 +123,10 @@ series = raw_input ("Enter seris numner, for this person (3): ")
 echos = 8
 os.chdir('/Volumes/Anthony.Gatti_MacintoshHD/Users/Gatti/Desktop/T2_map_testing/')
 
-T2data, numsl, EchoTime = SeriesRead (exam, series)
+T2data, numsl, EchoTime, T2export= SeriesRead (exam, series)
 
 fourD, EchoTimes = fourD(numsl, echos, T2data, EchoTime)
-
-
-#print 'echo two from each slice' 
-#
-#for y in (range (1, (numsl+1))):
-#    slice = ((8*y)-7)    
-#    pylab.imshow(T2data[:,:,slice], cmap=pylab.cm.bone)
-#    pylab.figure(y+1)
-#
-#print '8 echos from slice 10'   
-#
-#for i in (range ((8*10-8), (8*10))):
-#    pylab.imshow(T2data[:,:,i], cmap=pylab.cm.bone)
-#    pylab.figure(i+100)
-
-#displays an image from approximately the middle of the medfial knee (1/4)          
+          
 print '''****************************************************************
 An image will appear. First, click in the center of the image to bring
 is to the front of your screen and to initiate; second click the top left 
@@ -185,8 +154,11 @@ plt.plot(vecx, vecy, c='r', linewidth=2)
 plt.show()
 
 # extract data from the ROI selected in the previous steps. Only analyze this.
-zoom = fourD[(range (y1, y2+1)), :,:,:]
-zoom = zoom[:, (range (x1, x2+1)),:,:]
+#zoom = fourD[(range (y1, y2)), :,:,:]
+#zoom = zoom[:, (range (x1, x2)),:,:]
+
+zoom= numpy.zeros(shape=(y2-y1, x2-x1, numsl, echos))
+zoom[:,:,:,:] = fourD[y1:y2, x1:x2,:,:]
 
 # pre-allocate arrays for the T2/PD/Rsq data
 T2 = numpy.zeros(shape=(zoom.shape[0], zoom.shape[1], zoom.shape[2]))
@@ -194,42 +166,21 @@ PD = numpy.zeros(shape=(zoom.shape[0], zoom.shape[1], zoom.shape[2]))
 Rsq = numpy.zeros(shape=(zoom.shape[0], zoom.shape[1], zoom.shape[2]))
 
 T2, PD, Rsq = t2Relax(numsl, zoom, T2, PD, Rsq)
-#for z in range(0, numsl):
-#    t = time.time()
-#    for y in range (0, zoom.shape[0]):
-#        for x in range (0, zoom.shape[1]):
-#            S = numpy.squeeze(zoom[y,x,z,:])
-#            
-#            if S[1] < 400:
-#                T2[y,x,z] = 0
-#                PD[y,x,z] = 0
-#                Rsq[y,x,z] = 0
-#            elif S[1] > 3000:
-#                T2[y,x,z] = 0
-#                PD[y,x,z] = 0
-#                Rsq[y,x,z] = 0
-#            else:
-#                popt, pcov = curve_fit(func, EchoTimes, S)
-#                T2[y,x,z] = popt[1]
-#                PD[y,x,z] = popt[0]
-#                Rsq[y,x,z] = 0
-#                if T2[y,x,z] >80: # show values much closer to the real T2
-#                    T2[y,x,z] = 0
-#                    PD[y,x,z] = 0
-#                    Rsq[y,x,z] = 0
-#                elif T2[y,x,z] <0:
-#                    T2[y,x,z] = 0
-#                    PD[y,x,z] = 0
-#                    Rsq[y,x,z] = 0
-#                    
-#    elapsed = time.time() - t
-#    print z    
-#    print elapsed
 
-#pydicom.filewriter.write_file(T2map, T2, )
+T2new = numpy.zeros(shape=(T2data.shape[0], T2data.shape[1], numsl))
+PDnew = numpy.zeros(shape=(T2data.shape[0], T2data.shape[1], numsl))
+Rsqnew = numpy.zeros(shape=(T2data.shape[0], T2data.shape[1], numsl))
+
+#ydimension = range(y1,y2+1)
+#xdimension = range(x1, x2+1)
+T2new[y1:y2, x1:x2, :] = T2[:,:,:]
+
+#T2export
+
+pydicom.filewriter.write_file(T2export, T2new)
 
 for y in (range (0, (numsl))):   
-    plt.imshow(T2[:,:,y], cmap=pylab.cm.bone)
+    plt.imshow(T2new[:,:,y], cmap=pylab.cm.bone)
     plt.show()
             
             
