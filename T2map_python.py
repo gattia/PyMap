@@ -57,18 +57,18 @@ def fourD (numsl, echos, T2data, TE):
                 EchoTimes [te-1] = EchoTime[image]  
     return (fourD, EchoTimes)
 
-def onclick(event):
-    global ix, iy
-    ix, iy = event.xdata, event.ydata
-    print 'x = %d, y = %d' %(ix, iy)
-    
-    global coords
-    coords.append((ix, iy))
-    
-    if len(coords) ==2:
-        fig.canvas.mp1_disconnect(cid)
-    
-    return coords
+#def onclick(event):
+#    global ix, iy
+#    ix, iy = event.xdata, event.ydata
+#    print 'x = %d, y = %d' %(ix, iy)
+#    
+#    global coords
+#    coords.append((ix, iy))
+#    
+#    if len(coords) ==2:
+#        fig.canvas.mp1_disconnect(cid)
+#    
+#    return coords
 
 def onclick(event):
     global ix, iy
@@ -98,7 +98,41 @@ def roi(coords):
     return(vecx, vecy, xx1, xx2, yy1, yy2)
 
 def func(TE, PD, T2):
-    return PD*numpy.exp(-TE/T2)    
+    return PD*numpy.exp(-TE/T2)
+
+def t2Relax(numsl, zoom, T2, PD, Rsq):
+    for z in range(0, numsl):
+        t = time.time()
+        for y in range (0, zoom.shape[0]):
+            for x in range (0, zoom.shape[1]):
+                S = numpy.squeeze(zoom[y,x,z,:])
+            
+                if S[1] < 400:
+                    T2[y,x,z] = 0
+                    PD[y,x,z] = 0
+                    Rsq[y,x,z] = 0
+                elif S[1] > 3000:
+                    T2[y,x,z] = 0
+                    PD[y,x,z] = 0
+                    Rsq[y,x,z] = 0
+                else:
+                    popt, pcov = curve_fit(func, EchoTimes, S)
+                    T2[y,x,z] = popt[1]
+                    PD[y,x,z] = popt[0]
+                    Rsq[y,x,z] = 0
+                    if T2[y,x,z] >80: # show values much closer to the real T2
+                        T2[y,x,z] = 0
+                        PD[y,x,z] = 0
+                        Rsq[y,x,z] = 0
+                    elif T2[y,x,z] <0:
+                        T2[y,x,z] = 0
+                        PD[y,x,z] = 0
+                        Rsq[y,x,z] = 0
+                    
+        elapsed = time.time() - t
+        print z    
+        print elapsed
+    return(T2, PD, Rsq)
 
 exam = raw_input("Enter exam number, for practice (3657): ")
 series = raw_input ("Enter seris numner, for this person (3): ")    
@@ -128,7 +162,8 @@ print '''****************************************************************
 An image will appear. First, click in the center of the image to bring
 is to the front of your screen and to initiate; second click the top left 
 hand corer of the ROI; third, clock the bottom right hand corner of the 
-ROI. If done correctly, the figure should disappear'''
+ROI. If done correctly, the figure should disappear & a new figure
+with a red box around your ROI should appear, close this figure to cont.'''
 
 #Show an image from the medial side of the knee and select the ROI 
 fig = plt.figure(1)
@@ -154,38 +189,48 @@ zoom = fourD[(range (y1, y2+1)), :,:,:]
 zoom = zoom[:, (range (x1, x2+1)),:,:]
 
 # pre-allocate arrays for the T2/PD/Rsq data
-T2 = numpy.zeros(shape=(zoom.shape))
-PD = numpy.zeros(shape=(zoom.shape))
-Rsq = numpy.zeros(shape=(zoom.shape))
+T2 = numpy.zeros(shape=(zoom.shape[0], zoom.shape[1], zoom.shape[2]))
+PD = numpy.zeros(shape=(zoom.shape[0], zoom.shape[1], zoom.shape[2]))
+Rsq = numpy.zeros(shape=(zoom.shape[0], zoom.shape[1], zoom.shape[2]))
 
-for z in range(0, numsl):
-    t = time.time()
-    for y in range (0, zoom.shape[0]):
-        for x in range (0, zoom.shape[1]):
-            S = numpy.squeeze(zoom[y,x,z,:])
-            
-            if S[1] < 400:
-                T2[y,x,z] = 0
-                PD[y,x,z] = 0
-                Rsq[y,x,z] = 0
-            elif S[1] > 3000:
-                T2[y,x,z] = 0
-                PD[y,x,z] = 0
-                Rsq[y,x,z] = 0
-            else:
-                popt, pcov = curve_fit(func, EchoTimes, S)
-                T2[y,x,z] = popt[1]
-                PD[y,x,z] = popt[0]
-                Rsq[y,x,z] = 0
-    elapsed = time.time() - t
-    print z    
-    print elapsed
+T2, PD, Rsq = t2Relax(numsl, zoom, T2, PD, Rsq)
+#for z in range(0, numsl):
+#    t = time.time()
+#    for y in range (0, zoom.shape[0]):
+#        for x in range (0, zoom.shape[1]):
+#            S = numpy.squeeze(zoom[y,x,z,:])
+#            
+#            if S[1] < 400:
+#                T2[y,x,z] = 0
+#                PD[y,x,z] = 0
+#                Rsq[y,x,z] = 0
+#            elif S[1] > 3000:
+#                T2[y,x,z] = 0
+#                PD[y,x,z] = 0
+#                Rsq[y,x,z] = 0
+#            else:
+#                popt, pcov = curve_fit(func, EchoTimes, S)
+#                T2[y,x,z] = popt[1]
+#                PD[y,x,z] = popt[0]
+#                Rsq[y,x,z] = 0
+#                if T2[y,x,z] >80: # show values much closer to the real T2
+#                    T2[y,x,z] = 0
+#                    PD[y,x,z] = 0
+#                    Rsq[y,x,z] = 0
+#                elif T2[y,x,z] <0:
+#                    T2[y,x,z] = 0
+#                    PD[y,x,z] = 0
+#                    Rsq[y,x,z] = 0
+#                    
+#    elapsed = time.time() - t
+#    print z    
+#    print elapsed
 
-pydicom.filewriter.write_file(T2map, T2, )
+#pydicom.filewriter.write_file(T2map, T2, )
 
 for y in (range (0, (numsl))):   
-    pylab.imshow(T2[:,:,y,1], cmap=pylab.cm.bone)
-    pylab.figure(y+1)
+    plt.imshow(T2[:,:,y], cmap=pylab.cm.bone)
+    plt.show()
             
             
 #guess = (1500, 30)           
