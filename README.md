@@ -2,16 +2,18 @@
 T2 mapping software written in python
 
 
-To run this program you will need to have a number of python modules installed on your computer. 
-Some of these are included in anaconda which you can install and others you will need in addition. 
+To run this program you will need to have a number of python modules installed on your computer. Some of these are included in anaconda which you can install and others you will need in addition. 
 
-The ones included within anaconda are: (https://www.continuum.io/downloads)
+
+The ones included within anaconda are: (https://www.continuum.io/downloads):
+
 pylab
 matplotlib
 numpy
 scipy 
 
-The additional ones you will need are: 
+The additional ones you will need are:
+
 pydicom (http://pydicom.readthedocs.org/en/latest/getting_started.html#installing)
 natsort (http://pythonhosted.org/natsort/intro.html#installation)
 
