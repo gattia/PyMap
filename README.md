@@ -9,8 +9,11 @@ The ones included within anaconda are: (https://www.continuum.io/downloads):
 
 
 pylab
+
 matplotlib
+
 numpy
+
 scipy 
 
 The additional ones you will need are:
