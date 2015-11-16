@@ -84,7 +84,11 @@ def roi(coords):
 def func(TE, PD, T2):
     return PD*numpy.exp(-TE/T2)
 
-def t2Relax(numsl, zoom, T2, PD, Rsq):
+def t2Relax(numsl, zoom):
+    T2 = numpy.zeros(shape=(zoom.shape[0], zoom.shape[1], zoom.shape[2]))
+    PD = numpy.zeros(shape=(zoom.shape[0], zoom.shape[1], zoom.shape[2]))
+    Rsq = numpy.zeros(shape=(zoom.shape[0], zoom.shape[1], zoom.shape[2]))
+
     for z in range(0, numsl):
         t = time.time()
         for y in range (0, zoom.shape[0]):
@@ -121,7 +125,7 @@ def t2Relax(numsl, zoom, T2, PD, Rsq):
 exam = raw_input("Enter exam number, for practice (3657): ")
 series = raw_input ("Enter seris numner, for this person (3): ")    
 echos = 8
-os.chdir('/Volumes/Anthony.Gatti_MacintoshHD/Users/Gatti/Desktop/T2_map_testing/')
+os.chdir('/home/gatti/Documents/T2_Play_Images/T2_map_testing')
 
 T2data, numsl, EchoTime, T2export= SeriesRead (exam, series)
 
