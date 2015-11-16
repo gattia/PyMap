@@ -19,7 +19,7 @@ The additional ones you will need are:
 - natsort (http://pythonhosted.org/natsort/intro.html#installation)
 
 
-The program is within the script File. The actual file that is run is T2mapHeaderDicom.py
+The program is within the file Script. The actual file that is run is T2mapHeaderDicom.py
 
 You will need to alter a few things to make the program work on your specific machine. 
 
