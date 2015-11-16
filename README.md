@@ -7,13 +7,9 @@ To run this program you will need to have a number of python modules installed o
 
 The ones included within anaconda are: (https://www.continuum.io/downloads):
 
-
 pylab
-
 matplotlib
-
 numpy
-
 scipy 
 
 The additional ones you will need are:
